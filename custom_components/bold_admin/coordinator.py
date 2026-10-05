@@ -9,14 +9,15 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .api import BoldTokenError, async_refresh_token
+from .api import BoldConnectionError, BoldTokenError, async_refresh_token
 from .const import (
     CONF_CLIENT_SECRET,
     CONF_REFRESH_TOKEN,
     DOMAIN,
     REFRESH_INTERVAL,
+    RETRY_INTERVAL,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -52,14 +53,19 @@ class BoldAdminCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 entry.data[CONF_REFRESH_TOKEN],
                 entry.data[CONF_CLIENT_SECRET],
             )
+        except BoldConnectionError as err:
+            # The token is probably fine. Keep trying, and sooner than usual,
+            # because a chain that stops being refreshed dies of disuse.
+            self.update_interval = RETRY_INTERVAL
+            raise UpdateFailed(f"Couldn't refresh the Bold token: {err}") from err
         except BoldTokenError as err:
-            # A dead chain cannot be recovered automatically, re-bootstrapping
-            # needs a browser login. Raise as auth failure so HA shows a repair
-            # notification instead of failing quietly, which is precisely how
-            # the last expiry went unnoticed for three weeks.
+            # A dead chain cannot be recovered automatically. Raise as auth
+            # failure so HA starts the reauth flow (a fresh browser login) and
+            # shows a repair, instead of failing quietly.
             raise ConfigEntryAuthFailed(
-                f"Bold refused the refresh token, re-bootstrap needed: {err}"
+                f"Bold refused the refresh token, log in again: {err}"
             ) from err
+        self.update_interval = REFRESH_INTERVAL
 
         # Persist immediately. The token we just spent is already dead, so a
         # crash between here and the next run would strand the chain.

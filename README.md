@@ -53,18 +53,30 @@ Copy `custom_components/bold_admin/` into your `/config/custom_components/` and 
 
 ## Set up
 
-You need two things: a **refresh token** and the **`BoldApp` client secret**.
+You need the **`BoldApp` client secret** (the app's own OAuth client, see the
+docs on how it was captured).
 
-Capturing a refresh token is a one-time manual step, because Bold has no automated
-initial login. Open the OAuth authorize URL with `client_id=BoldApp`, log in, grab the
-`code` from the redirect that fails to open `com.boldsmartlock://auth`, and exchange it
-at `POST /v2/oauth/token` with `grant_type=authorization_code`.
+Settings → Devices & Services → Add Integration → **Bold Admin** → **Log in with
+your Bold account**:
 
-Then: Settings → Devices & Services → Add Integration → **Bold Admin**, and paste both
-values.
+1. Open the Bold login link shown in the form and log in.
+2. After you approve, the browser tries to open `com.boldsmartlock://auth?code=...`
+   and fails. Copy that URL (address bar, the "open app?" prompt, or the Network
+   tab of the developer tools).
+3. Paste it, with the client secret, into the form.
 
-The token you paste is spent immediately to validate it, and the rotated replacement is
-what gets stored. That is intentional, it proves the chain works before the entry exists.
+The code works once, and only for the login started from that form.
+
+**Paste a refresh token captured by hand** is still there as a fallback. That
+token is spent immediately to validate it, and the rotated replacement is what
+gets stored.
+
+### When the chain dies
+
+If Bold refuses the refresh token, Home Assistant shows a repair and starts a
+reauth flow: the same login as above, reusing the stored client secret. Network
+failures are not treated as a dead chain: they're retried after 15 minutes,
+because a chain that stops being refreshed dies of disuse.
 
 ## Using the token
 

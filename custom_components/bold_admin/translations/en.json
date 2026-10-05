@@ -3,18 +3,40 @@
     "step": {
       "user": {
         "title": "Bold Admin",
-        "description": "Paste a freshly captured Bold refresh token and the BoldApp client secret. The token is spent immediately to verify it, and the rotated replacement is what gets stored. See the README for how to capture one.",
+        "description": "Log in to Bold with the app's own client, which can manage users and shares.",
+        "menu_options": {
+          "login": "Log in with your Bold account",
+          "token": "Paste a refresh token captured by hand"
+        }
+      },
+      "login": {
+        "title": "Log in to Bold",
+        "description": "1. Open [the Bold login]({url}) and log in.\n2. After you approve, your browser tries to open `com.boldsmartlock://auth?code=...` and fails. Copy that URL: from the address bar, the \"open app?\" prompt, or the browser's developer tools (Network tab, the last request's redirect).\n3. Paste it below. The code works once and only for this login, so don't reuse an older one.",
+        "data": {
+          "client_secret": "BoldApp client secret",
+          "redirect_url": "Redirect URL (or just the code)"
+        }
+      },
+      "token": {
+        "title": "Paste a refresh token",
+        "description": "Paste a freshly captured Bold refresh token and the BoldApp client secret. The token is spent immediately to verify it, and the rotated replacement is what gets stored.",
         "data": {
           "refresh_token": "Refresh token",
-          "client_secret": "Client secret"
+          "client_secret": "BoldApp client secret"
         }
       }
     },
     "error": {
-      "invalid_auth": "Bold refused that token. It has probably expired, capture a fresh one via the browser login."
+      "cannot_connect": "Couldn't reach Bold. Try again.",
+      "invalid_auth": "Bold refused that token. It has probably expired.",
+      "invalid_code": "Bold refused the code. Codes work only once and expire quickly: open the login link again.",
+      "no_code": "That doesn't contain a code. Paste the full com.boldsmartlock://auth?code=... URL.",
+      "wrong_state": "That redirect is from an earlier login attempt. Use the link on this page."
     },
     "abort": {
-      "already_configured": "This Bold account is already set up."
+      "already_configured": "This Bold account is already set up.",
+      "reauth_successful": "Logged in again. The token is being kept alive.",
+      "wrong_account": "That's a different Bold account than the one set up here."
     }
   }
 }
