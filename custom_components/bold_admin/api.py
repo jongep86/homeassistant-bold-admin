@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import logging
 import secrets
 import time
 from typing import Any
@@ -23,11 +24,17 @@ from .const import (
     CONF_ACCESS_TOKEN,
     CONF_ACCOUNT_ID,
     CONF_EXPIRES_AT,
+    CONF_ISSUED_AT,
     CONF_REFRESH_TOKEN,
     OAUTH_TOKEN_URL,
     REDIRECT_URI,
     SCOPE,
 )
+
+_LOGGER = logging.getLogger(__name__)
+
+# Never log these. Everything else in a token response is metadata.
+_SECRET_FIELDS = {"access_token", "refresh_token", "id_token"}
 
 
 class BoldTokenError(Exception):
@@ -133,12 +140,25 @@ async def _async_token_request(
         # 400 invalid_grant: the chain expired, or the code was already used.
         raise BoldTokenError(f"HTTP {response.status}: {body}")
 
+    if isinstance(body, dict):
+        # Bold doesn't document how long a refresh token lives. Log what the
+        # response does say, in case it carries a lifetime we can go by.
+        _LOGGER.info(
+            "Bold token response fields: %s",
+            {
+                key: "<redacted>" if key in _SECRET_FIELDS else value
+                for key, value in sorted(body.items())
+            },
+        )
+
+    now = time.time()
     try:
         return {
             CONF_ACCESS_TOKEN: body[CONF_ACCESS_TOKEN],
             CONF_REFRESH_TOKEN: body[CONF_REFRESH_TOKEN],
             CONF_ACCOUNT_ID: body.get(CONF_ACCOUNT_ID),
-            CONF_EXPIRES_AT: time.time() + body.get("expires_in", 86400),
+            CONF_EXPIRES_AT: now + body.get("expires_in", 86400),
+            CONF_ISSUED_AT: now,
         }
     except (KeyError, TypeError) as err:
         raise BoldTokenError(f"unexpected token response shape: {body}") from err

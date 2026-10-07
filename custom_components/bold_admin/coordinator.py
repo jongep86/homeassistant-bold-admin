@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
@@ -14,6 +15,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from .api import BoldConnectionError, BoldTokenError, async_refresh_token
 from .const import (
     CONF_CLIENT_SECRET,
+    CONF_ISSUED_AT,
     CONF_REFRESH_TOKEN,
     DOMAIN,
     REFRESH_INTERVAL,
@@ -46,6 +48,7 @@ class BoldAdminCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """Rotate the token and persist the new one."""
         entry = self.config_entry
         session = async_get_clientsession(self.hass)
+        age = self._token_age()
 
         try:
             tokens = await async_refresh_token(
@@ -63,7 +66,7 @@ class BoldAdminCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             # failure so HA starts the reauth flow (a fresh browser login) and
             # shows a repair, instead of failing quietly.
             raise ConfigEntryAuthFailed(
-                f"Bold refused the refresh token, log in again: {err}"
+                f"Bold refused a refresh token issued {age} ago, log in again: {err}"
             ) from err
         self.update_interval = REFRESH_INTERVAL
 
@@ -72,5 +75,20 @@ class BoldAdminCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.hass.config_entries.async_update_entry(
             entry, data={**entry.data, **tokens}
         )
-        _LOGGER.debug("Bold token rotated, next refresh in %s", REFRESH_INTERVAL)
+        _LOGGER.info(
+            "Bold token rotated, the spent one was issued %s ago; next in %s",
+            age,
+            REFRESH_INTERVAL,
+        )
         return tokens
+
+    def _token_age(self) -> str:
+        """Return how long ago the stored refresh token was issued.
+
+        This is the number to read when the chain dies: it bounds how long Bold
+        lets a refresh token sit unused.
+        """
+        if (issued_at := self.config_entry.data.get(CONF_ISSUED_AT)) is None:
+            return "an unknown time"
+        minutes = round((time.time() - issued_at) / 60)
+        return f"{minutes} min"

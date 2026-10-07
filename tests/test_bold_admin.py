@@ -1,6 +1,7 @@
 """Tests for Bold Admin: login, reauth and keeping the chain alive."""
 
 from datetime import timedelta
+import logging
 from urllib.parse import parse_qs, urlsplit
 
 from homeassistant import config_entries
@@ -197,6 +198,24 @@ async def test_refresh_persists_rotated_token(
     assert entry.data["refresh_token"] == "refresh-2"
     assert entry.data["access_token"] == "access-2"
     assert entry.runtime_data.update_interval == REFRESH_INTERVAL
+    assert entry.data["issued_at"] > 0
+
+
+async def test_refresh_logs_fields_not_tokens(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test the response metadata is logged, and the tokens are not."""
+    entry = _entry(hass)
+    aioclient_mock.post(OAUTH_TOKEN_URL, json=TOKENS)
+    with caplog.at_level(logging.INFO, logger="custom_components.bold_admin"):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+    assert "'expires_in': 86400" in caplog.text
+    assert "spent one was issued an unknown time ago" in caplog.text
+    assert "access-2" not in caplog.text
+    assert "refresh-2" not in caplog.text
 
 
 async def test_network_error_retries_sooner(

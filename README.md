@@ -26,15 +26,18 @@ Hence a separate domain.
 
 ## How it works
 
-A `DataUpdateCoordinator` spends the refresh token every 6 hours and persists the
+A `DataUpdateCoordinator` spends the refresh token every 30 minutes and persists the
 rotated replacement back to the config entry.
 
 **That periodic refresh is the entire feature.** Merely storing a token would decay
 exactly like a standalone chain does. The stock integration stays healthy only as a side
 effect of polling locks every few seconds; this one has to do it deliberately.
 
-Six hours sits far below the observed death window, and below the 24h access-token
-lifetime, so the stored access token is essentially always usable by an external caller.
+Bold doesn't document how long an unused refresh token lives. A chain once survived
+weeks on a 6-hour cadence, but another died within 6 hours of a fresh login, so the
+interval is kept short: a dead chain costs a manual login, a refresh costs nothing.
+Each refresh logs the non-secret fields of Bold's response, and how old the spent
+token was, so the limit can be read from the log if it ever bites again.
 
 `sensor.bold_admin_token_expires` makes liveness visible. A chain that dies silently can
 go unnoticed for weeks, so alert on this if you want a real safety net.

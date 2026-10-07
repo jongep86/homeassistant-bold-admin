@@ -23,13 +23,14 @@ CONF_ACCESS_TOKEN = "access_token"
 CONF_ACCOUNT_ID = "account_id"
 CONF_CLIENT_SECRET = "client_secret"
 CONF_EXPIRES_AT = "expires_at"
+CONF_ISSUED_AT = "issued_at"
 CONF_REFRESH_TOKEN = "refresh_token"
 
-# Bold expires a refresh token that goes unused. Observed death window is
-# 11 to 21 days idle (see docs). Six hours leaves a very wide margin while
-# staying far below the 24h access-token lifetime, so the stored access token
-# is essentially always usable by an external caller.
-REFRESH_INTERVAL = timedelta(hours=6)
+# Bold expires a refresh token that goes unused, and how soon is not documented.
+# A chain that lived for weeks on a 6h cadence in September died within 6h of
+# a fresh login in October, so the real limit may be much shorter. Every death
+# costs a manual login and the requests are cheap, so refresh often.
+REFRESH_INTERVAL = timedelta(minutes=30)
 
 # After a network failure, try again sooner than the regular cadence.
-RETRY_INTERVAL = timedelta(minutes=15)
+RETRY_INTERVAL = timedelta(minutes=5)
